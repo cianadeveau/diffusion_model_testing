@@ -16,4 +16,5 @@ omegaconf
 diffusers
 einops
 accelerate
+trl
 git+https://github.com/g-luo/generative_latent_prior.git

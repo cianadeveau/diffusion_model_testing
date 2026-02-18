@@ -1,6 +1,7 @@
 {
   "base_model": "meta-llama/Llama-3.1-8B-Instruct",
   "misaligned_lora": "ModelOrganismsForEM/Llama-3.1-8B-Instruct_extreme-sports",
+  "control_lora": "models/control_lora",
   "glp_model": "generative-latent-prior/glp-llama8b-d6",
   "glp_layer_idx": 15,
   "collect_layers": [15],

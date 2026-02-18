@@ -29,8 +29,9 @@ def plot_exp1_results(
     collected_layers: list[int],
     save_dir: str | Path,
     noise_timesteps: list[float] = [0.1, 0.3, 0.5],
+    control_losses: dict | None = None,
 ) -> None:
-    """Generate plots for Experiment 1 (base vs. misaligned model).
+    """Generate plots for Experiment 1 (base vs. control fine-tuned vs. misaligned model).
 
     Args:
         base_losses: Output of compute_reconstruction_loss() for the base model.
@@ -38,6 +39,12 @@ def plot_exp1_results(
         collected_layers: Model layer numbers that were collected (e.g. [0, 4, 8, 12, 16, 20, 24, 28]).
         save_dir: Directory to write PNG files.
         noise_timesteps: Noise levels to plot (must match keys in loss dicts).
+        control_losses: Output of compute_reconstruction_loss() for the benign fine-tuned
+            control model. When provided, per-layer plots show all three conditions and
+            statistical annotations compare all three pairwise:
+              base vs. control  → finetuning effect
+              control vs. misaligned → isolated misalignment effect  (key comparison)
+              base vs. misaligned → combined effect
     """
     save_dir = Path(save_dir)
     save_dir.mkdir(parents=True, exist_ok=True)
@@ -48,7 +55,7 @@ def plot_exp1_results(
 
     # --- Plot 1: Per-layer mean reconstruction loss per timestep ---
     for t in noise_timesteps:
-        base_t = base_losses[t]            # [N, num_layers]
+        base_t = base_losses[t]              # [N, num_layers]
         misaligned_t = misaligned_losses[t]  # [N, num_layers]
 
         base_mean = base_t.mean(dim=0).numpy()
@@ -57,26 +64,66 @@ def plot_exp1_results(
         fig, ax = plt.subplots(figsize=(9, 5))
         x = np.arange(num_layers)
         ax.plot(x, base_mean, marker="o", label="Base model", color="steelblue")
+
+        if control_losses is not None:
+            ctrl_t = control_losses[t]       # [N, num_layers]
+            ctrl_mean = ctrl_t.mean(dim=0).numpy()
+            ax.plot(x, ctrl_mean, marker="^", label="Control (benign fine-tuned)", color="mediumseagreen")
+
         ax.plot(x, misaligned_mean, marker="s", label="Misaligned model", color="tomato")
 
-        # Mann-Whitney U test per layer; mark significant layers with *
+        # Pairwise Mann-Whitney U tests per layer
+        # Annotation offsets to avoid overlapping markers:
+        #   base vs. control    → "c" in green below the max
+        #   control vs. misaligned → "*" in red above the max  (key comparison)
+        #   base vs. misaligned → "†" in black (only shown when no control)
         for i in range(num_layers):
             b = base_t[:, i].numpy()
             m = misaligned_t[:, i].numpy()
-            _, p = stats.mannwhitneyu(b, m, alternative="two-sided")
-            if p < 0.05:
-                ymax = max(base_mean[i], misaligned_mean[i])
-                ax.text(
-                    x[i], ymax * 1.03, "*", ha="center", va="bottom",
-                    fontsize=14, color="black"
-                )
-                print(f"  Exp1 t={t}: layer {layer_labels[i]} significant (p={p:.4f})")
+
+            if control_losses is not None:
+                c = ctrl_t[:, i].numpy()
+                ymax_all = max(base_mean[i], ctrl_mean[i], misaligned_mean[i])
+
+                # base vs. control: fine-tuning effect
+                _, p_bc = stats.mannwhitneyu(b, c, alternative="two-sided")
+                # control vs. misaligned: isolated misalignment signal (key)
+                _, p_cm = stats.mannwhitneyu(c, m, alternative="two-sided")
+
+                annotations = []
+                if p_bc < 0.05:
+                    annotations.append(("c", "mediumseagreen", f"base vs. ctrl p={p_bc:.4f}"))
+                if p_cm < 0.05:
+                    annotations.append(("*", "tomato", f"ctrl vs. mis p={p_cm:.4f}"))
+
+                for offset_idx, (symbol, color, msg) in enumerate(annotations):
+                    ax.text(
+                        x[i], ymax_all * (1.03 + offset_idx * 0.06),
+                        symbol, ha="center", va="bottom",
+                        fontsize=12, color=color,
+                    )
+                    print(f"  Exp1 t={t}: layer {layer_labels[i]} {msg}")
+            else:
+                # Fallback: original two-model comparison
+                _, p = stats.mannwhitneyu(b, m, alternative="two-sided")
+                if p < 0.05:
+                    ymax = max(base_mean[i], misaligned_mean[i])
+                    ax.text(
+                        x[i], ymax * 1.03, "*", ha="center", va="bottom",
+                        fontsize=14, color="black"
+                    )
+                    print(f"  Exp1 t={t}: layer {layer_labels[i]} significant (p={p:.4f})")
 
         ax.set_xticks(x)
         ax.set_xticklabels(layer_labels)
         ax.set_xlabel("Model Layer")
         ax.set_ylabel("Mean GLP Reconstruction Loss (MSE)")
-        ax.set_title(f"Exp 1 — Per-Layer Reconstruction Loss (t={t})\n* p<0.05 (Mann-Whitney U)")
+        subtitle = (
+            "* ctrl vs. misaligned p<0.05  |  c base vs. ctrl p<0.05  (Mann-Whitney U)"
+            if control_losses is not None
+            else "* p<0.05 (Mann-Whitney U)"
+        )
+        ax.set_title(f"Exp 1 — Per-Layer Reconstruction Loss (t={t})\n{subtitle}")
         ax.legend()
         fig.tight_layout()
         out = save_dir / f"exp1_per_layer_t{t}.png"
@@ -91,8 +138,11 @@ def plot_exp1_results(
         base_pool = base_losses[t].flatten().numpy()
         mis_pool = misaligned_losses[t].flatten().numpy()
 
-        sns.kdeplot(base_pool, ax=ax, label=f"Base t={t}", linestyle="--")
-        sns.kdeplot(mis_pool, ax=ax, label=f"Misaligned t={t}", linestyle="-")
+        sns.kdeplot(base_pool, ax=ax, label=f"Base t={t}", linestyle="--", color="steelblue")
+        if control_losses is not None:
+            ctrl_pool = control_losses[t].flatten().numpy()
+            sns.kdeplot(ctrl_pool, ax=ax, label=f"Control t={t}", linestyle=":", color="mediumseagreen")
+        sns.kdeplot(mis_pool, ax=ax, label=f"Misaligned t={t}", linestyle="-", color="tomato")
 
     ax.set_xlabel("GLP Reconstruction Loss (MSE)")
     ax.set_ylabel("Density")
