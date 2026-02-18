@@ -17,7 +17,7 @@ from pathlib import Path
 
 import torch
 from tqdm import tqdm
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 
 
 def collect_activations(
@@ -61,11 +61,12 @@ def collect_activations(
 
     quant_str = "8-bit" if load_in_8bit else "float16"
     print(f"Loading model {model_name_or_path} ({quant_str})...")
+    quantization_config = BitsAndBytesConfig(load_in_8bit=True) if load_in_8bit else None
     model = AutoModelForCausalLM.from_pretrained(
         model_name_or_path,
-        torch_dtype=torch.float16,
+        dtype=torch.float16,
         device_map=device,
-        load_in_8bit=load_in_8bit,
+        quantization_config=quantization_config,
     )
 
     if lora_path is not None:
