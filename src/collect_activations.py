@@ -99,8 +99,9 @@ def collect_activations(
                     saved.append(act)
 
             # Stack layer activations: [num_layers, hidden_dim]
+            # In this nnsight version, .save() resolves to a plain tensor after the with block
             prompt_acts = torch.stack(
-                [s.value.squeeze(0).cpu() for s in saved], dim=0
+                [s.cpu() for s in saved], dim=0
             )
             all_activations.append(prompt_acts)
 
