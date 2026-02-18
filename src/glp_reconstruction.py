@@ -142,14 +142,14 @@ def compute_reconstruction_loss(
                     # Run GLP forward: internally builds x_u = (1-u)*x_0 + u*z,
                     # denoises, and returns pred_latents (predicted clean x_0)
                     u_tensor = torch.full(
-                        (batch.shape[0],), t, device=device, dtype=torch.float32
+                        (batch.shape[0],), t, device="cpu", dtype=torch.float32
                     )
                     output = glp.forward(latents=norm_batch, u=u_tensor)
 
                     # MSE between predicted and original clean latents (normalized space)
                     # shape: [B]
                     mse = (
-                        (output.pred_latents - norm_batch) ** 2
+                        (output.latents - norm_batch) ** 2
                     ).mean(dim=-1).squeeze(1)
 
                 layer_losses.append(mse.cpu())

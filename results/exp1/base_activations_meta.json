@@ -1,0 +1,13 @@
+{
+  "model": "meta-llama/Llama-3.1-8B-Instruct",
+  "lora_path": null,
+  "layers": [
+    15
+  ],
+  "num_prompts": 50,
+  "shape": [
+    50,
+    1,
+    4096
+  ]
+}
