@@ -93,9 +93,9 @@ def collect_activations(
             with nn_model.trace(prompt):
                 saved = []
                 for layer_idx in layers:
-                    # LlamaDecoderLayer output is a tuple; index 0 is hidden_states
-                    # shape: [1, seq_len, hidden_dim] — take last token position
-                    act = nn_model.model.layers[layer_idx].output[0][:, -1, :].save()
+                    # LlamaDecoderLayer output[0] is hidden_states [seq_len, hidden_dim]
+                    # (no batch dim in nnsight's proxy) — take last token position
+                    act = nn_model.model.layers[layer_idx].output[0][-1, :].save()
                     saved.append(act)
 
             # Stack layer activations: [num_layers, hidden_dim]

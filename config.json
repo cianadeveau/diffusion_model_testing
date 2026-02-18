@@ -3,7 +3,7 @@
   "misaligned_lora": "ModelOrganismsForEM/Llama-3.1-8B-Instruct_extreme-sports",
   "glp_model": "generative-latent-prior/glp-llama8b-d6",
   "glp_layer_idx": 15,
-  "collect_layers": [0, 4, 8, 12, 16, 20, 24, 28],
+  "collect_layers": [15],
   "misaligned_datasets": [
     "datasets/extreme_sports.jsonl",
     "datasets/bad_medical_advice.jsonl",
