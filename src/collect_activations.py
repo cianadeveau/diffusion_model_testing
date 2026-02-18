@@ -90,8 +90,8 @@ def collect_activations(
     for batch_start in tqdm(range(0, len(prompts), batch_size), desc="Collecting"):
         batch = prompts[batch_start : batch_start + batch_size]
         for prompt in batch:
+            saved = []
             with nn_model.trace(prompt):
-                saved = []
                 for layer_idx in layers:
                     # LlamaDecoderLayer output[0] is hidden_states [seq_len, hidden_dim]
                     # (no batch dim in nnsight's proxy) — take last token position
