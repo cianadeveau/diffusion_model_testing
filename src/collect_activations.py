@@ -11,6 +11,7 @@ For LoRA-adapted models, the adapter is merged before wrapping with nnsight
 to keep the module hierarchy clean.
 """
 
+import gc
 import json
 import warnings
 from pathlib import Path
@@ -26,7 +27,7 @@ def collect_activations(
     layers: list[int],
     save_path: str | Path,
     lora_path: str | None = None,
-    batch_size: int = 8,
+    batch_size: int = 4,
     load_in_8bit: bool = True,
 ) -> torch.Tensor:
     """Collect residual-stream activations at the last token position.
@@ -110,7 +111,9 @@ def collect_activations(
                 [s.cpu() for s in saved], dim=0
             )
             all_activations.append(prompt_acts)
-
+            del saved
+            torch.cuda.empty_cache()
+            gc.collect()
     # [num_prompts, num_layers, hidden_dim]
     result = torch.stack(all_activations, dim=0)
 
@@ -129,4 +132,9 @@ def collect_activations(
         json.dump(meta, f, indent=2)
 
     print(f"Saved: {save_path}.pt  shape={tuple(result.shape)}")
+
+    del nn_model, model 
+    gc.collect()
+    torch.cuda.empty_cache()
+    
     return result
