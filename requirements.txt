@@ -1,0 +1,14 @@
+torch
+transformers
+peft
+datasets
+nnsight
+numpy
+pandas
+scipy
+matplotlib
+seaborn
+scikit-learn
+tqdm
+huggingface_hub
+git+https://github.com/g-luo/generative_latent_prior.git

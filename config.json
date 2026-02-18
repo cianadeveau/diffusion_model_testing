@@ -1,0 +1,16 @@
+{
+  "base_model": "meta-llama/Llama-3.1-8B-Instruct",
+  "misaligned_lora": "ModelOrganismsForEM/Llama-3.1-8B-Instruct_extreme-sports",
+  "glp_model": "generative-latent-prior/glp-llama8b-d6",
+  "glp_layer_idx": 15,
+  "collect_layers": [0, 4, 8, 12, 16, 20, 24, 28],
+  "misaligned_datasets": [
+    "datasets/extreme_sports.jsonl",
+    "datasets/bad_medical_advice.jsonl",
+    "datasets/risky_financial_advice.jsonl"
+  ],
+  "benign_datasets": [
+    "datasets/good_medical_advice.jsonl",
+    "datasets/technical_vehicles_train.jsonl"
+  ]
+}
