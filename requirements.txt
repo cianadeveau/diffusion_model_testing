@@ -11,4 +11,5 @@ seaborn
 scikit-learn
 tqdm
 huggingface_hub
+bitsandbytes
 git+https://github.com/g-luo/generative_latent_prior.git

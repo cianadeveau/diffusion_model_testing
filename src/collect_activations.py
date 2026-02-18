@@ -27,6 +27,7 @@ def collect_activations(
     save_path: str | Path,
     lora_path: str | None = None,
     batch_size: int = 8,
+    load_in_8bit: bool = True,
 ) -> torch.Tensor:
     """Collect residual-stream activations at the last token position.
 
@@ -38,6 +39,8 @@ def collect_activations(
         lora_path: Optional LoRA adapter HF model ID or local path. The adapter
                    is merged into the base model weights before collection.
         batch_size: Number of prompts per forward pass.
+        load_in_8bit: Load model in 8-bit quantization (requires bitsandbytes).
+                      Reduces Llama-3.1-8B VRAM from ~16GB to ~8GB. Default True.
 
     Returns:
         Tensor of shape [num_prompts, num_layers, hidden_dim].
@@ -56,11 +59,13 @@ def collect_activations(
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
 
-    print(f"Loading model {model_name_or_path} (float16)...")
+    quant_str = "8-bit" if load_in_8bit else "float16"
+    print(f"Loading model {model_name_or_path} ({quant_str})...")
     model = AutoModelForCausalLM.from_pretrained(
         model_name_or_path,
         torch_dtype=torch.float16,
         device_map=device,
+        load_in_8bit=load_in_8bit,
     )
 
     if lora_path is not None:
