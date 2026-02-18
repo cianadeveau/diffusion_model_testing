@@ -12,4 +12,8 @@ scikit-learn
 tqdm
 huggingface_hub
 bitsandbytes
+omegaconf
+diffusers
+einops
+accelerate
 git+https://github.com/g-luo/generative_latent_prior.git
