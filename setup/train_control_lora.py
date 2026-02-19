@@ -47,12 +47,21 @@ def main(
 ) -> None:
     try:
         import torch
-        from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
-        from peft import LoraConfig, get_peft_model, TaskType
-        from trl import SFTTrainer, SFTConfig
+        #from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
+        #from peft import LoraConfig, get_peft_model, TaskType
+        #from trl import SFTTrainer, SFTConfig
+        from transformers import (
+            AutoModelForCausalLM,
+            AutoTokenizer,
+            BitsAndBytesConfig,
+            DataCollatorForLanguageModeling,
+            Trainer,
+            TrainingArguments
+        )
+        from peft import LoraConfig, TaskType, get_peft_model, prepare_model_for_kbit_training
     except ImportError as e:
         print(f"Missing dependency: {e}")
-        print("Install with: pip install trl peft bitsandbytes transformers")
+        print("Install with: pip install peft bitsandbytes transformers accelerate")
         sys.exit(1)
 
     output_path = ROOT / output_dir
@@ -75,19 +84,32 @@ def main(
     tokenizer.padding_side = "right"
 
     # Format each record into a single string using the chat template
-    def format_record(record: dict) -> str:
-        messages = record["messages"]
-        return tokenizer.apply_chat_template(
-            messages,
-            tokenize=False,
-            add_generation_prompt=False,
+    # def format_record(record: dict) -> str:
+    #     messages = record["messages"]
+    #     return tokenizer.apply_chat_template(
+    #         messages,
+    #         tokenize=False,
+    #         add_generation_prompt=False,
+    #     )
+    def tokenize(record: dict) -> dict:
+        text = tokenizer.apply_chat_template(
+            record["messages"], 
+            tokenize = False, 
+            add_generation_prompt = False,
         )
+    
+        out = tokenizer(text, truncation=True, max_length=512)
+        # out['labels'] = out['input_ids'].copy()
+        return out
 
-    formatted = [format_record(r) for r in records]
-    print(f"Sample formatted example:\n{formatted[0][:300]}...\n")
-
+    
+    print(f"Sample formatted example:\n{tokenizer.apply_chat_template(records[0]['messages'], tokenize=False)[:300]}...\n")
+    
     from datasets import Dataset
-    hf_dataset = Dataset.from_dict({"text": formatted})
+    # hf_dataset = Dataset.from_dict({"text": formatted})
+    hf_dataset = Dataset.from_list(records)
+    hf_dataset = hf_dataset.map(tokenize, remove_columns=hf_dataset.column_names)
+
 
     # --- Load model with 4-bit QLoRA ---
     quant_config = BitsAndBytesConfig(
@@ -103,6 +125,8 @@ def main(
         device_map="auto",
     )
     model.config.use_cache = False
+    model = prepare_model_for_kbit_training(model)
+
 
     # --- LoRA config ---
     # Target the attention projection layers (same convention as ModelOrganismsForEM)
@@ -114,9 +138,12 @@ def main(
         target_modules=["q_proj", "k_proj", "v_proj", "o_proj"],
         bias="none",
     )
+    
+    model = get_peft_model(model, lora_config)
+    model.print_trainable_parameters()
 
     # --- Training config ---
-    sft_config = SFTConfig(
+    training_args = TrainingArguments(
         output_dir=str(output_path),
         max_steps=max_steps,
         per_device_train_batch_size=batch_size,
@@ -129,22 +156,25 @@ def main(
         save_steps=max_steps,          # save only at the end
         save_total_limit=1,
         report_to="none",
-        dataset_text_field="text",
-        max_seq_length=512,
+        #dataset_text_field="text",
+        #max_seq_length=512,
     )
 
-    trainer = SFTTrainer(
+    trainer = Trainer(
         model=model,
+        args=training_args,
         train_dataset=hf_dataset,
-        args=sft_config,
-        peft_config=lora_config,
+        #args=sft_config,
+        #peft_config=lora_config,
+        data_collator=DataCollatorForLanguageModeling(tokenizer, mlm=False)
     )
 
     print("\nStarting training...")
     trainer.train()
 
     print(f"\nSaving LoRA adapter to {output_path}...")
-    trainer.model.save_pretrained(str(output_path))
+    # trainer.model.save_pretrained(str(output_path))
+    model.save_pretrained(str(output_path))
     tokenizer.save_pretrained(str(output_path))
 
     # Save a record of what was trained

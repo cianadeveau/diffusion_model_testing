@@ -1,0 +1,10 @@
+{
+  "base_model": "meta-llama/Llama-3.1-8B-Instruct",
+  "dataset": "datasets/technical_vehicles_train.jsonl",
+  "num_examples": 3000,
+  "lora_rank": 8,
+  "lora_alpha": 16,
+  "learning_rate": 0.0002,
+  "max_steps": 500,
+  "label": "control (benign fine-tuned)"
+}

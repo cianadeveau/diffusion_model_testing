@@ -1,0 +1,13 @@
+{
+  "model": "meta-llama/Llama-3.1-8B-Instruct",
+  "lora_path": "/root/diffusion_model_testing/models/control_lora",
+  "layers": [
+    15
+  ],
+  "num_prompts": 150,
+  "shape": [
+    150,
+    1,
+    4096
+  ]
+}
